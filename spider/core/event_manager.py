@@ -45,4 +45,4 @@ class EventManager(object):
         for h in todelete:
             del hdict[h]
 
-EventManager = EventManager()
+event_manager = EventManager()
