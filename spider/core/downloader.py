@@ -3,6 +3,8 @@ import asyncio
 from .event_manager import event_manager, Events
 from ..utils.log_decorator import log
 from ..middleware.user_agent_mw import UserAgentMiddleware
+import time
+import logging
 
 class Downloader(object):
     def __init__(self, crawler, loop):
@@ -18,7 +20,7 @@ class Downloader(object):
 
     @log(start='downloader start')
     def open(self):
-        self._session = aiohttp.ClientSession(loop=self._loop)
+        self._session = aiohttp.ClientSession(loop=self._loop, headers={ "Accept-Encoding": "gzip"})
 
     @log(end='downloader stop')
     def close(self):
@@ -40,8 +42,16 @@ class Downloader(object):
             mw.process_request(request)
 
     async def start_download(self, request):
-        response = await self._session.get(request.url, headers=request.header)
-        return await response.text()
+        try:
+            start = time.time()
+            response = await self._session.get(request.url, timeout=10)
+            content = await response.text()
+            await response.release()
+            end = time.time()
+            logging.debug('{} downloaded, spent {}, {} bytes.'.format(request.url, end - start, len(content)))
+            return content
+        except:
+            logging.warning('download {} failed.'.format(request.url))
 
     async def do_download(self, request):
         self.apply_middlewares(request)

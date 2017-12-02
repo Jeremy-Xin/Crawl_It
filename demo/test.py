@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(1, '..')
+
 from spider.core.engine import Engine
 from spider.base.crawler import Crawler
 from spider.http.request import Request
@@ -6,12 +9,18 @@ from spider.parser.html_parser import HtmlParser
 import re
 import bs4
 from bs4 import BeautifulSoup
+import time
+import logging
+import logging.config
+import spider.utils.config_loader
 
 class MockCrawler(Crawler):
     detail_pattern = 'detail/index/soft_id/'
     crawled = set()
     base_url = 'http://zhushou.360.cn'
     start_url = ['http://zhushou.360.cn/game/', 'http://zhushou.360.cn/soft']
+    # start_url = ['https://www.zhihu.com/']
+
 
     def start_requests(self):
         for url in self.start_url:
@@ -19,10 +28,11 @@ class MockCrawler(Crawler):
             yield Request(url, callback=self.process_links)
 
     def process_links(self, response):
+        start = time.time()
         content = response.content
         request = response.request
         links = HtmlParser().extract_link(content, base_url=request.url)
-        print('{} has {} links'.format(request.url, len(links)))
+        # print('{} has {} links'.format(request.url, len(links)))
         for link in links:
             # app
             if re.search(self.detail_pattern, link):
@@ -34,6 +44,8 @@ class MockCrawler(Crawler):
                 if not link in self.crawled:
                     self.crawled.add(link)
                     yield Request(link, callback=self.process_links)
+        end = time.time()
+        # print('Process_links spent {}'.format(end - start))
 
     def process_item(self, response):
         soup = BeautifulSoup(response.content, 'lxml')
@@ -41,5 +53,6 @@ class MockCrawler(Crawler):
         if len(app_name):
             yield Item(app_name[0].text)
 
+# config_loader.from_file('logging.conf')
 e = Engine(MockCrawler())
 e.start_engine()

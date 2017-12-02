@@ -7,7 +7,8 @@ from ..http.request import Request
 from ..http.response import Response
 from ..utils.log_decorator import log
 import traceback
-from ..pipeline.singlefilepipeline import SingleFilePipeline
+from ..pipeline.singlefile_pipeline import SingleFilePipeline
+from ..utils import config_loader
 
 class Engine(object):
     '''
@@ -18,17 +19,20 @@ class Engine(object):
         self.scheduler = Scheduler(crawler)
         self.downloader = Downloader(crawler, loop)
         self.running_tasks = []
-        self.parallel_num = 10
+        self.parallel_num = 16
         self._loop = loop or asyncio.get_event_loop()
         self.started = False
         self.pipeline = SingleFilePipeline()
         self.max_depth = 5
+        config_loader.from_object({'log_level':'DEBUG'})
 
     def start_engine(self):
         '''
         starting point of whole system
         '''
         try:
+            # asyncio.Task(self.start())
+            # self._loop.run_forever()
             self._loop.run_until_complete(self.start())
         except Exception as ex:
             print(ex)
@@ -47,7 +51,7 @@ class Engine(object):
         event_manager.SendEvent(Events.ENGINE_START)
         self.init_crawler_request()
 
-        self.running_tasks = [asyncio.Task(self.do_works(i + 1)) for i in range(64)]
+        self.running_tasks = [asyncio.Task(self.do_works(i + 1)) for i in range(self.parallel_num)]
         await asyncio.wait(self.running_tasks)
 
     def init_crawler_request(self):
@@ -64,22 +68,30 @@ class Engine(object):
         idle_round = 0
         while True:
             if self.scheduler.have_next():
-                await self.do_one_work()
+                idle_round = 0
+                await self.do_one_work(idx)
             else:
                 await asyncio.sleep(1)
+                # print('sleep')
                 idle_round += 1
                 if idle_round > 10:
                     break
         print('Worker{} Done!'.format(idx))
 
-    async def do_one_work(self):
+    # async def do_works(self, idx):
+    #     while True:
+    #         await self.do_one_work(idx)
+
+    async def do_one_work(self, idx):
         '''
         process one request in a coroutine
         '''
         request = await self._next_request_from_scheduler()
-        # if not request:
-        #     break
+        if not request:
+            return
         content = await self._download(request)
+        if not content:
+            return
         response = Response(content, request)
         for item in request.callback(response):
             assert isinstance(item, (Request, Item)), "unexpected type"
@@ -88,7 +100,7 @@ class Engine(object):
             else:
                 item.depth = request.depth + 1
                 if item.depth > self.max_depth:
-                    return
+                    continue
                 await self.scheduler.schedule(item)
 
     async def _next_request_from_scheduler(self):
