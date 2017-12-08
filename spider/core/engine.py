@@ -9,22 +9,25 @@ from ..utils.log_decorator import log
 import traceback
 from ..pipeline.singlefile_pipeline import SingleFilePipeline
 from ..utils import config_loader
+from ..utils import logger_util
+from ..utils import logger
 
 class Engine(object):
     '''
     this is the engine of all components
     '''
-    def __init__(self, crawler, loop=None):
+    def __init__(self, crawler, config, loop=None, ):
         self.crawler = crawler
         self.scheduler = Scheduler(crawler)
         self.downloader = Downloader(crawler, loop)
         self.running_tasks = []
-        self.parallel_num = 16
+        self.parallel_num = 8
         self._loop = loop or asyncio.get_event_loop()
         self.started = False
         self.pipeline = SingleFilePipeline()
         self.max_depth = 5
-        config_loader.from_object({'log_level':'DEBUG'})
+        config_loader.from_object(config)
+        logger_util.set_level(config['spider_log_level'])
 
     def start_engine(self):
         '''
@@ -34,6 +37,10 @@ class Engine(object):
             # asyncio.Task(self.start())
             # self._loop.run_forever()
             self._loop.run_until_complete(self.start())
+        except KeyboardInterrupt:
+            print('keyboard interrupt')
+            for task in self.running_tasks:
+                task.cancel()
         except Exception as ex:
             print(ex)
             traceback.print_tb(ex.__traceback__)
@@ -65,18 +72,21 @@ class Engine(object):
         '''
         deal with requests one by one
         '''
-        idle_round = 0
-        while True:
-            if self.scheduler.have_next():
-                idle_round = 0
-                await self.do_one_work(idx)
-            else:
-                await asyncio.sleep(1)
-                # print('sleep')
-                idle_round += 1
-                if idle_round > 10:
-                    break
-        print('Worker{} Done!'.format(idx))
+        try:
+            idle_round = 0
+            while True:
+                if self.scheduler.have_next():
+                    idle_round = 0
+                    await self.do_one_work(idx)
+                else:
+                    await asyncio.sleep(1)
+                    # print('sleep')
+                    idle_round += 1
+                    if idle_round > 10:
+                        break
+            logger.info('Worker{} Done!'.format(idx))
+        except:
+            logger.error('Worker {} got exception!'.format(idx))
 
     # async def do_works(self, idx):
     #     while True:

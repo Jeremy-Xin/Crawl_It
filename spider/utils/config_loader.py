@@ -1,8 +1,15 @@
 import logging
 
-def from_object(config):
-    logging.basicConfig(level=logging.DEBUG)
+config = None
+
+def from_object(myconfig):
+    global config
+    config = myconfig
 
 
 def from_file(path):
-    logging.basicConfig(level=logging.DEBUG)
+    pass
+
+
+def get_config():
+    return config

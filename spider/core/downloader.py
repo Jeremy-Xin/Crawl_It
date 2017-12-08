@@ -4,7 +4,7 @@ from .event_manager import event_manager, Events
 from ..utils.log_decorator import log
 from ..middleware.user_agent_mw import UserAgentMiddleware
 import time
-import logging
+from ..utils import logger
 
 class Downloader(object):
     def __init__(self, crawler, loop):
@@ -18,15 +18,15 @@ class Downloader(object):
         event_manager.AddEventListener(Events.ENGINE_START, self.open)
         event_manager.AddEventListener(Events.ENGINE_CLOSE, self.close)
 
-    @log(start='downloader start')
     def open(self):
+        logger.info('Downloader opened')
         self._session = aiohttp.ClientSession(loop=self._loop, headers={ "Accept-Encoding": "gzip"})
 
-    @log(end='downloader stop')
     def close(self):
         try:
             if not self._session.closed:
                 self._session.close()
+                logger.info('Downloader closed')
         except Exception as e:
             print(e)
 
@@ -48,10 +48,10 @@ class Downloader(object):
             content = await response.text()
             await response.release()
             end = time.time()
-            logging.debug('{} downloaded, spent {}, {} bytes.'.format(request.url, end - start, len(content)))
+            logger.debug('{} downloaded, spent {}, {} bytes.'.format(request.url, end - start, len(content)))
             return content
         except:
-            logging.warning('download {} failed.'.format(request.url))
+            logger.warning('download {} failed.'.format(request.url))
 
     async def do_download(self, request):
         self.apply_middlewares(request)

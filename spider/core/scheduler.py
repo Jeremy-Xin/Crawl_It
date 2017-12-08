@@ -2,6 +2,7 @@ from asyncio import Queue
 import asyncio
 import time
 import datetime
+from ..utils import logger
 
 class Scheduler(object):
     def __init__(self, crawler):
