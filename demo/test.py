@@ -13,7 +13,7 @@ import time
 import logging
 import logging.config
 from spider.utils import config_loader
-
+import config
 
 class MockCrawler(Crawler):
     detail_pattern = 'detail/index/soft_id/'
@@ -54,7 +54,8 @@ class MockCrawler(Crawler):
         if len(app_name):
             yield Item(app_name[0].text)
 
-config = {'spider_log_level':'info'}
+# config = {'spider_log_level':'info'}
+config_dict = config_loader.from_file(config)
 # config_loader.from_file('logging.conf')
-e = Engine(MockCrawler(), config)
+e = Engine(MockCrawler(), config_dict)
 e.start_engine()

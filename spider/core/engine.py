@@ -1,4 +1,6 @@
 import asyncio
+import traceback
+import sys
 from .scheduler import Scheduler
 from .downloader import Downloader
 from ..base.item import Item
@@ -6,27 +8,28 @@ from .event_manager import event_manager, Events
 from ..http.request import Request
 from ..http.response import Response
 from ..utils.log_decorator import log
-import traceback
 from ..pipeline.singlefile_pipeline import SingleFilePipeline
-from ..utils import config_loader
+from ..utils import from_object
 from ..utils import logger_util
 from ..utils import logger
+from ..utils import get_cls_from_name
 
 class Engine(object):
     '''
     this is the engine of all components
     '''
-    def __init__(self, crawler, config, loop=None, ):
+    def __init__(self, crawler, config, loop=None):
         self.crawler = crawler
-        self.scheduler = Scheduler(crawler)
+        scheduler_cls = get_cls_from_name(config['scheduler_class'])
+        self.scheduler = scheduler_cls(crawler)
         self.downloader = Downloader(crawler, loop)
         self.running_tasks = []
         self.parallel_num = 8
         self._loop = loop or asyncio.get_event_loop()
         self.started = False
         self.pipeline = SingleFilePipeline()
-        self.max_depth = 5
-        config_loader.from_object(config)
+        self.max_depth = 2
+        from_object(config)
         logger_util.set_level(config['spider_log_level'])
 
     def start_engine(self):
